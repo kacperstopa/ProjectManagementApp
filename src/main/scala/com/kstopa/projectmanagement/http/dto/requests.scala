@@ -2,8 +2,9 @@ package com.kstopa.projectmanagement.http.dto
 
 import java.time.LocalDateTime
 
+import cats.data.NonEmptyList
 import cats.effect.Sync
-import com.kstopa.projectmanagement.model.YearWithMonth
+import com.kstopa.projectmanagement.model.{ProjectId, YearWithMonth}
 import io.circe.Decoder
 import io.circe.generic.auto._
 import org.http4s.{EntityDecoder, EntityEncoder}
@@ -12,7 +13,7 @@ import org.http4s.circe.jsonEncoderOf
 
 case class CreateProjectDTO(name: String)
 object CreateProjectDTO {
-  implicit def createProjectDTODecoder[F[_]: Sync]: EntityDecoder[F, CreateProjectDTO] = jsonOf
+  implicit def createProjectDTODecoder[F[_]: Sync]: EntityDecoder[F, CreateProjectDTO]       = jsonOf
   implicit def createProjectDTOEntityEncoder[F[_]: Sync]: EntityEncoder[F, CreateProjectDTO] = jsonEncoderOf
 }
 
@@ -42,6 +43,19 @@ case class UpdateTaskDTO(
 object UpdateTaskDTO {
   implicit def updateTaskDTODecoder[F[_]: Sync]: EntityDecoder[F, UpdateTaskDTO] = jsonOf
 }
+
+case class ProjectQueryDTO(
+  ids: Option[NonEmptyList[Int]],
+  from: Option[LocalDateTime],
+  to: Option[LocalDateTime],
+  deleted: Option[Boolean],
+  page: Int,
+  size: Int,
+)
+object ProjectQueryDTO {
+  implicit def projectQueryDTODecoder[F[_]: Sync]: EntityDecoder[F, ProjectQueryDTO] = jsonOf
+}
+
 
 sealed trait SortByDTO
 object SortByDTO {

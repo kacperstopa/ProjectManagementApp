@@ -4,6 +4,16 @@ import java.time.{Duration, LocalDateTime}
 
 case class ProjectId(value: Int)
 
-case class Project(id: ProjectId, name: String, author: String, created_on: LocalDateTime)
+case class Project(id: ProjectId, name: String, author: String, createdOn: LocalDateTime)
 
-case class ProjectWithTasks(project: Project, tasks: List[TaskWithDeleteTimeOption], totalTime: Duration)
+case class MaybeDeletedProject(
+  id: ProjectId,
+  name: String,
+  author: String,
+  createdOn: LocalDateTime,
+  deletedOn: Option[LocalDateTime],
+)
+
+case class ProjectWithTasks(project: Project, tasks: List[MaybeDeletedTask], totalTime: Duration)
+
+case class MaybeDeletedProjectWithTasks(project: MaybeDeletedProject, tasks: List[MaybeDeletedTask], totalTime: Duration)

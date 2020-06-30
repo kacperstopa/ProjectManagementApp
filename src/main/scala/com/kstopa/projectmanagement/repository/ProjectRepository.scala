@@ -6,7 +6,7 @@ import cats.data.{NonEmptyList, OptionT}
 import cats.effect._
 import cats.free.Free
 import cats.free.Free.Pure
-import com.kstopa.projectmanagement.model.{AuthUser, Project, ProjectId, ProjectInsertionResult, ProjectRenameResult, SortBy}
+import com.kstopa.projectmanagement.model.{AuthUser, MaybeDeletedProject, Project, ProjectId, ProjectInsertionResult, ProjectRenameResult, SortBy}
 import doobie.free.connection.ConnectionIO
 import doobie.hikari.HikariTransactor
 import doobie.implicits._
@@ -84,16 +84,16 @@ class ProjectRepository() {
     from: Option[LocalDateTime],
     to: Option[LocalDateTime],
     deleted: Option[Boolean]
-  )(page: Int, size: Int): fs2.Stream[ConnectionIO, Project] = {
+  )(page: Int, size: Int): fs2.Stream[ConnectionIO, MaybeDeletedProject] = {
     val sortBy: Option[SortBy] = SortBy.UpdateTime.some
 
     val select =
       if (deleted.isEmpty) {
-        fr"SELECT id, name, author, created_on FROM projects UNION SELECT id, name, author, created_on FROM deleted_projects"
+        fr"SELECT id, name, author, created_on, CAST(NULL as TIMESTAMP) as deleted_on FROM projects UNION SELECT id, name, author, created_on, deleted_on FROM deleted_projects"
       } else if (deleted.contains(false)) {
-        fr"SELECT id, name, author, created_on FROM projects"
+        fr"SELECT id, name, author, created_on, CAST(NULL as TIMESTAMP) as deleted_on FROM projects"
       } else {
-        fr"SELECT id, name, author, created_on FROM deleted_projects"
+        fr"SELECT id, name, author, created_on, deleted_on FROM deleted_projects"
       }
 
     val conditions =
@@ -112,7 +112,7 @@ class ProjectRepository() {
       }
 
     val finalSelect = if(sortBy.contains(SortBy.UpdateTime)) {
-      fr"""SELECT id, name, author, created_on
+      fr"""SELECT id, name, author, created_on, deleted_on
            FROM (
              SELECT max(start_time), project_id FROM tasks GROUP BY project_id
              UNION SELECT max(start_time), project_id FROM deleted_tasks GROUP BY project_id
@@ -121,6 +121,6 @@ class ProjectRepository() {
 
     val paging =
       fr"offset ${page*size} rows fetch next $size rows only"
-    (finalSelect ++ conditions ++ orderBy ++ paging).query[Project].stream
+    (finalSelect ++ conditions ++ orderBy ++ paging).query[MaybeDeletedProject].stream
   }
 }

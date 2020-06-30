@@ -3,7 +3,7 @@ package com.kstopa.projectmanagement.http.dto
 import java.time.{Duration, LocalDateTime}
 
 import cats.effect.Sync
-import com.kstopa.projectmanagement.model.{Project, ProjectWithTasks, Statistics, StatisticsList, Task, TaskWithDeleteTimeOption}
+import com.kstopa.projectmanagement.model.{MaybeDeletedProject, MaybeDeletedProjectWithTasks, MaybeDeletedTask, Project, ProjectWithTasks, Statistics, StatisticsList, Task}
 import io.circe.Encoder
 import io.circe.generic.semiauto.deriveEncoder
 import org.http4s.{EntityDecoder, EntityEncoder}
@@ -12,7 +12,7 @@ import org.http4s.circe.jsonOf
 import io.circe.generic.auto._
 
 
-case class ProjectWithTasksDTO(project: ProjectDTO, tasks: List[TaskWithDeleteTimeOptionDTO], totalTime: Duration)
+case class ProjectWithTasksDTO(project: ProjectDTO, tasks: List[MaybeDeletedTaskDTO], totalTime: Duration)
 object ProjectWithTasksDTO {
   implicit val projectWithTasksDTOEncoder: Encoder[ProjectWithTasksDTO]                            = deriveEncoder[ProjectWithTasksDTO]
   implicit def projectWithTasksDTOEntityEncoder[F[_]: Sync]: EntityEncoder[F, ProjectWithTasksDTO] = jsonEncoderOf
@@ -20,7 +20,20 @@ object ProjectWithTasksDTO {
   def fromService(projectWithTasks: ProjectWithTasks): ProjectWithTasksDTO =
     ProjectWithTasksDTO(
       ProjectDTO.fromService(projectWithTasks.project),
-      projectWithTasks.tasks.map(TaskWithDeleteTimeOptionDTO.fromService),
+      projectWithTasks.tasks.map(MaybeDeletedTaskDTO.fromService),
+      projectWithTasks.totalTime,
+    )
+}
+
+case class MaybeDeletedProjectWithTasksDTO(project: MaybeDeletedProjectDTO, tasks: List[MaybeDeletedTaskDTO], totalTime: Duration)
+object MaybeDeletedProjectWithTasksDTO {
+  implicit val projectWithTasksDTOEncoder: Encoder[MaybeDeletedProjectWithTasksDTO]                            = deriveEncoder[MaybeDeletedProjectWithTasksDTO]
+  implicit def projectWithTasksDTOEntityEncoder[F[_]: Sync]: EntityEncoder[F, MaybeDeletedProjectWithTasksDTO] = jsonEncoderOf
+
+  def fromService(projectWithTasks: MaybeDeletedProjectWithTasks): MaybeDeletedProjectWithTasksDTO =
+    MaybeDeletedProjectWithTasksDTO(
+      MaybeDeletedProjectDTO.fromService(projectWithTasks.project),
+      projectWithTasks.tasks.map(MaybeDeletedTaskDTO.fromService),
       projectWithTasks.totalTime,
     )
 }
@@ -51,7 +64,7 @@ object TaskDTO {
     )
 }
 
-case class TaskWithDeleteTimeOptionDTO(
+case class MaybeDeletedTaskDTO(
   id: Int,
   projectId: Int,
   startTime: LocalDateTime,
@@ -61,12 +74,12 @@ case class TaskWithDeleteTimeOptionDTO(
   volume: Option[Int],
   deletedOn: Option[LocalDateTime],
 )
-object TaskWithDeleteTimeOptionDTO {
-  implicit val taskDTOEncoder: Encoder[TaskWithDeleteTimeOptionDTO]                            = deriveEncoder[TaskWithDeleteTimeOptionDTO]
-  implicit def taskDTOEntityEncoder[F[_]: Sync]: EntityEncoder[F, TaskWithDeleteTimeOptionDTO] = jsonEncoderOf
+object MaybeDeletedTaskDTO {
+  implicit val taskDTOEncoder: Encoder[MaybeDeletedTaskDTO]                            = deriveEncoder[MaybeDeletedTaskDTO]
+  implicit def taskDTOEntityEncoder[F[_]: Sync]: EntityEncoder[F, MaybeDeletedTaskDTO] = jsonEncoderOf
 
-  def fromService(task: TaskWithDeleteTimeOption): TaskWithDeleteTimeOptionDTO =
-    TaskWithDeleteTimeOptionDTO(
+  def fromService(task: MaybeDeletedTask): MaybeDeletedTaskDTO =
+    MaybeDeletedTaskDTO(
       task.id.value,
       task.projectId.value,
       task.startTime,
@@ -94,11 +107,33 @@ object ProjectDTO {
       project.id.value,
       project.name,
       project.author,
-      project.created_on
+      project.createdOn
     )
 }
 
-case class ListOfProjectsWithTasksDTO(projects: List[ProjectWithTasksDTO])
+case class MaybeDeletedProjectDTO(
+                                   id: Int,
+                                   name: String,
+                                   author: String,
+                                   createdOn: LocalDateTime,
+                                   deletedOn: Option[LocalDateTime]
+)
+object MaybeDeletedProjectDTO {
+  implicit val maybeDeletedProjectDTOEncode: Encoder[MaybeDeletedProjectDTO]                             = deriveEncoder[MaybeDeletedProjectDTO]
+  implicit def maybeDeletedProjectDTOEntityEncoder[F[_]: Sync]: EntityEncoder[F, MaybeDeletedProjectDTO] = jsonEncoderOf
+  implicit def maybeDeletedProjectDTOEntityDecoder[F[_]: Sync]: EntityDecoder[F, MaybeDeletedProjectDTO] = jsonOf
+
+  def fromService(project: MaybeDeletedProject): MaybeDeletedProjectDTO =
+    MaybeDeletedProjectDTO(
+      project.id.value,
+      project.name,
+      project.author,
+      project.createdOn,
+      project.deletedOn,
+    )
+}
+
+case class ListOfProjectsWithTasksDTO(projects: List[MaybeDeletedProjectWithTasksDTO])
 object ListOfProjectsWithTasksDTO {
   implicit val listOfProjectsWithTasksDTOEncoder: Encoder[ListOfProjectsWithTasksDTO] =
     deriveEncoder[ListOfProjectsWithTasksDTO]

@@ -41,7 +41,7 @@ object ProjectRoutes {
           deleteResult <- projectService.delete(user)(ProjectId(id))
           response <- deleteResult match {
             case ProjectDeletionResult.ProjectDeleted(_, _) => Ok()
-            case ProjectDeletionResult.ProjectNotDeleted                            => BadRequest(ErrorResponse("Project not deleted"))
+            case ProjectDeletionResult.ProjectNotDeleted    => BadRequest(ErrorResponse("Project not deleted"))
           }
         } yield response
       case GET -> Root / IntVar(id) as _ =>
@@ -52,10 +52,16 @@ object ProjectRoutes {
             case None                   => NotFound()
           }
         } yield response
-      case GET -> Root / "query" as _ =>
+      case req @ POST -> Root / "query" as _ =>
         for {
-          projects <- projectService.query(Option.empty, Option.empty, Option.empty, Option.empty)(0, 20)
-          result   <- Ok(ListOfProjectsWithTasksDTO(projects.map(ProjectWithTasksDTO.fromService)))
+          projectQueryDTO <- req.req.as[ProjectQueryDTO]
+          projects <- projectService.query(
+            projectQueryDTO.ids.map(_.map(ProjectId)),
+            projectQueryDTO.from,
+            projectQueryDTO.to,
+            projectQueryDTO.deleted
+          )(projectQueryDTO.page, projectQueryDTO.size)
+          result <- Ok(ListOfProjectsWithTasksDTO(projects.map(MaybeDeletedProjectWithTasksDTO.fromService)))
         } yield result
     }
   }

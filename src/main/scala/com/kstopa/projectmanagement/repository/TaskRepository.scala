@@ -1,14 +1,19 @@
 package com.kstopa.projectmanagement.repository
 
-import java.time.LocalDateTime
+import java.time.{Duration, LocalDateTime}
 
-import cats.free.Free
-import com.kstopa.projectmanagement.model.TaskDeletionResult.{TaskDeleted, TaskNotDeleted}
-import com.kstopa.projectmanagement.model.TaskInsertionResult.{ProjectNotExistsError, StartAfterEndTimeError, TaskInserted}
-import com.kstopa.projectmanagement.model._
-import doobie._
+import com.kstopa.projectmanagement.model.{AuthUser, Project, ProjectId, Task, TaskDeletionResult, TaskId, TaskInsertionResult, MaybeDeletedTask}
 import doobie.implicits._
 import doobie.postgres._
+import doobie._
+import cats._
+import cats.data._
+import cats.free.Free
+import com.kstopa.projectmanagement.model.TaskDeletionResult.{TaskDeleted, TaskNotDeleted}
+import com.kstopa.projectmanagement.model.TaskInsertionResult.{ProjectNotExistsError, StartAfterEndTimeError, TaskInserted, TaskOverlapsOtherTask}
+import doobie.implicits._
+import cats.implicits._
+import doobie.implicits.javatime._
 
 
 class TaskRepository() {
@@ -65,11 +70,11 @@ class TaskRepository() {
       .query[Int]
       .unique
 
-  def getTasksForProject(projectId: ProjectId): ConnectionIO[List[TaskWithDeleteTimeOption]] =
+  def getTasksForProject(projectId: ProjectId): ConnectionIO[List[MaybeDeletedTask]] =
     sql"""SELECT id, project_id, start_time, end_time, author, comment, volume, null FROM tasks
           UNION SELECT id, project_id, start_time, end_time, author, comment, volume, deleted_on FROM deleted_tasks
           WHERE project_id = ${projectId.value}"""
-      .query[TaskWithDeleteTimeOption]
+      .query[MaybeDeletedTask]
       .to[List]
 
   def getSumOfTimeForProject(projectId: ProjectId): ConnectionIO[Long] =

@@ -14,7 +14,7 @@ case class Task(
   volume: Option[Int],
 )
 
-case class TaskWithDeleteTimeOption(
+case class MaybeDeletedTask(
   id: TaskId,
   projectId: ProjectId,
   startTime: LocalDateTime,

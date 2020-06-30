@@ -47,16 +47,16 @@ class ProjectService[F[_]](
     from: Option[LocalDateTime],
     to: Option[LocalDateTime],
     deleted: Option[Boolean]
-  )(page: Int, size: Int): F[List[ProjectWithTasks]] =
+  )(page: Int, size: Int): F[List[MaybeDeletedProjectWithTasks]] =
     (for {
       project   <- projectRepository.query(ids, from, to, deleted)(page, size)
       tasks     <- fs2.Stream.eval(taskRepository.getTasksForProject(project.id))
       totalTime <- fs2.Stream.eval(AsyncConnectionIO.pure(tasksToDuration(tasks)))
-    } yield ProjectWithTasks(project, tasks, totalTime)).compile.toList.transact(transactor)
+    } yield MaybeDeletedProjectWithTasks(project, tasks, totalTime)).compile.toList.transact(transactor)
 
   def getSumOftime(projectId: ProjectId): F[Long] =
     taskRepository.getSumOfTimeForProject(projectId).transact(transactor)
 
-  private def tasksToDuration(tasks: List[TaskWithDeleteTimeOption]): Duration =
+  private def tasksToDuration(tasks: List[MaybeDeletedTask]): Duration =
     Duration.ofNanos(tasks.map(task => Duration.between(task.startTime, task.endTime).toNanos).sum)
 }

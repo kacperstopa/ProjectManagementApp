@@ -4,6 +4,7 @@ import cats.effect.{Blocker, ContextShift, IO, Resource}
 import com.typesafe.config.ConfigFactory
 import pureconfig._
 import pureconfig.module.catseffect.syntax._
+import pureconfig.generic.auto._
 
 case class ServerConfig(host: String, port: Int)
 case class DatabaseConfig(driver: String, url: String, user: String, password: String, threadPoolSize: Int)
