@@ -46,10 +46,12 @@ class ProjectService[F[_]](
     ids: Option[NonEmptyList[ProjectId]],
     from: Option[LocalDateTime],
     to: Option[LocalDateTime],
-    deleted: Option[Boolean]
+    deleted: Option[Boolean],
+    sortBy: Option[SortBy],
+    order: Option[Order],
   )(page: Int, size: Int): F[List[MaybeDeletedProjectWithTasks]] =
     (for {
-      project   <- projectRepository.query(ids, from, to, deleted)(page, size)
+      project   <- projectRepository.query(ids, from, to, deleted, sortBy, order)(page, size)
       tasks     <- fs2.Stream.eval(taskRepository.getTasksForProject(project.id))
       totalTime <- fs2.Stream.eval(AsyncConnectionIO.pure(tasksToDuration(tasks)))
     } yield MaybeDeletedProjectWithTasks(project, tasks, totalTime)).compile.toList.transact(transactor)

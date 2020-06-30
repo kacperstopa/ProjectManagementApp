@@ -59,7 +59,9 @@ object ProjectRoutes {
             projectQueryDTO.ids.map(_.map(ProjectId)),
             projectQueryDTO.from,
             projectQueryDTO.to,
-            projectQueryDTO.deleted
+            projectQueryDTO.deleted,
+            projectQueryDTO.sortBy.map(_.toService),
+            projectQueryDTO.order.map(_.toService),
           )(projectQueryDTO.page, projectQueryDTO.size)
           result <- Ok(ListOfProjectsWithTasksDTO(projects.map(MaybeDeletedProjectWithTasksDTO.fromService)))
         } yield result

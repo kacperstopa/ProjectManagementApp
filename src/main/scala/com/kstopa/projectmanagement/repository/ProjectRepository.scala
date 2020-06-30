@@ -6,7 +6,7 @@ import cats.data.{NonEmptyList, OptionT}
 import cats.effect._
 import cats.free.Free
 import cats.free.Free.Pure
-import com.kstopa.projectmanagement.model.{AuthUser, MaybeDeletedProject, Project, ProjectId, ProjectInsertionResult, ProjectRenameResult, SortBy}
+import com.kstopa.projectmanagement.model.{AuthUser, MaybeDeletedProject, Order, Project, ProjectId, ProjectInsertionResult, ProjectRenameResult, SortBy}
 import doobie.free.connection.ConnectionIO
 import doobie.hikari.HikariTransactor
 import doobie.implicits._
@@ -19,7 +19,6 @@ import doobie.util.fragment.Fragment
 import doobie._
 import doobie.implicits._
 import doobie.util.ExecutionContexts
-import cats._
 import cats.data._
 import cats.effect._
 import cats.implicits._
@@ -83,10 +82,10 @@ class ProjectRepository() {
     ids: Option[NonEmptyList[ProjectId]],
     from: Option[LocalDateTime],
     to: Option[LocalDateTime],
-    deleted: Option[Boolean]
+    deleted: Option[Boolean],
+    sortBy: Option[SortBy],
+    order: Option[Order],
   )(page: Int, size: Int): fs2.Stream[ConnectionIO, MaybeDeletedProject] = {
-    val sortBy: Option[SortBy] = SortBy.UpdateTime.some
-
     val select =
       if (deleted.isEmpty) {
         fr"SELECT id, name, author, created_on, CAST(NULL as TIMESTAMP) as deleted_on FROM projects UNION SELECT id, name, author, created_on, deleted_on FROM deleted_projects"
@@ -106,9 +105,9 @@ class ProjectRepository() {
       if(sortBy.isEmpty) {
         Fragment.empty
       } else if (sortBy.contains(SortBy.CreationTime)) {
-        fr"ORDER BY created_on"
+        fr"ORDER BY created_on " ++ order.fold(Fragment.empty)(order => if (order == Order.Asc) fr"ASC" else fr"DESC")
       } else {
-        fr"ORDER BY coalesce(max, created_on)"
+        fr"ORDER BY coalesce(max, created_on) " ++ order.fold(Fragment.empty)(order => if (order == Order.Asc) fr"ASC" else fr"DESC")
       }
 
     val finalSelect = if(sortBy.contains(SortBy.UpdateTime)) {

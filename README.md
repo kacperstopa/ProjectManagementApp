@@ -90,7 +90,9 @@ Body:
 	      "to": "2020-07-01T11:43:25.25114",
 		  "page": 0,
 		  "deleted": false,
-		  "size": 10
+		  "size": 10,
+		  "order": "asc", // or "desc"
+          "sortBy": "creationTime" // or "updateTime"
 }
 ```
 Response:

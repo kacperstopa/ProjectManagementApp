@@ -4,7 +4,7 @@ import java.time.LocalDateTime
 
 import cats.data.NonEmptyList
 import cats.effect.Sync
-import com.kstopa.projectmanagement.model.{ProjectId, YearWithMonth}
+import com.kstopa.projectmanagement.model.{Order, ProjectId, SortBy, YearWithMonth}
 import io.circe.Decoder
 import io.circe.generic.auto._
 import org.http4s.{EntityDecoder, EntityEncoder}
@@ -49,6 +49,8 @@ case class ProjectQueryDTO(
   from: Option[LocalDateTime],
   to: Option[LocalDateTime],
   deleted: Option[Boolean],
+  sortBy: Option[SortByDTO],
+  order: Option[OrderDTO],
   page: Int,
   size: Int,
 )
@@ -57,10 +59,16 @@ object ProjectQueryDTO {
 }
 
 
-sealed trait SortByDTO
+sealed trait SortByDTO {
+  def toService: SortBy
+}
 object SortByDTO {
-  case object CreationTimeDTO extends SortByDTO
-  case object UpdateTimeDTO   extends SortByDTO
+  case object CreationTimeDTO extends SortByDTO {
+    override def toService: SortBy = SortBy.CreationTime
+  }
+  case object UpdateTimeDTO   extends SortByDTO {
+    override def toService: SortBy = SortBy.UpdateTime
+  }
 
   implicit val sortByDTODecoder: Decoder[SortByDTO] = Decoder[String].emap {
     case "creationTime" => Right(CreationTimeDTO)
@@ -69,10 +77,16 @@ object SortByDTO {
   }
 }
 
-sealed trait OrderDTO
+sealed trait OrderDTO {
+  def toService: Order
+}
 object OrderDTO {
-  case object DescDTO extends OrderDTO
-  case object AscDTO  extends OrderDTO
+  case object DescDTO extends OrderDTO {
+    override def toService: Order = Order.Desc
+  }
+  case object AscDTO  extends OrderDTO {
+    override def toService: Order = Order.Asc
+  }
 
   implicit val orderDTODecoder: Decoder[OrderDTO] = Decoder[String].emap {
     case "desc" => Right(DescDTO)
