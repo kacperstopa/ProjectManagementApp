@@ -21,14 +21,16 @@ API is authenticated using JWT token. Example token:
 ---
 
 `POST /projects`
-Creates new project
+
 Body:
 ```json
 {
    "name": "test_name"
 }
 ```
+
 Response:
+
 ```json
 {
     "id": 1,
@@ -41,18 +43,21 @@ Response:
 ---
 
 `PUT /projects/{id}`
+
 Body:
 ```json
 {
    "name": "new_test_name"
 }
 ```
+
 Response empty
 
 
 ---
 
 `GET /projects/{id}`
+
 Response:
 ```json
 {
@@ -76,6 +81,7 @@ Response empty
 ---
 
 `POST /projects/query`
+
 Body:
 ```json
 {
@@ -119,6 +125,7 @@ Response:
 ---
 
 `POST /tasks`
+
 Body:
 ```json
 {
@@ -145,6 +152,7 @@ Response:
 ---
 
 `PUT /tasks/{id}`
+
 Body:
 ```json
 {
@@ -170,11 +178,13 @@ Response:
 ---
 
 `DELETE /tasks/{id}`
+
 Response empty
 
 ---
 
 `POST /statistics`
+
 Body:
 ```json
 {
