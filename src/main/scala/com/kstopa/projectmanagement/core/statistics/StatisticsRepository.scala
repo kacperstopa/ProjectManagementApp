@@ -1,42 +1,25 @@
-package com.kstopa.projectmanagement.repository
+package com.kstopa.projectmanagement.core.statistics
 
-import java.time.{Duration, LocalDate, LocalDateTime}
+import java.time.{Duration, LocalDate}
 
-import com.kstopa.projectmanagement.model.{AuthUser, Project, ProjectId, ProjectInsertionResult, ProjectRenameResult, SortBy, Statistics, Task}
-import cats.data.{NonEmptyList, OptionT}
-import cats.effect._
-import cats.free.Free
-import cats.free.Free.Pure
+import cats.data.NonEmptyList
+import com.kstopa.projectmanagement.core.task.Task
 import doobie.free.connection.ConnectionIO
-import doobie.hikari.HikariTransactor
-import doobie.implicits._
 import doobie.postgres._
 import doobie.implicits.javatime._
-import cats.implicits._
-import com.kstopa.projectmanagement.model.ProjectInsertionResult.ProjectInserted
-import com.kstopa.projectmanagement.model.ProjectRenameResult.ProjectRenamed
 import doobie.util.fragment.Fragment
 import doobie._
 import doobie.implicits._
-import doobie.util.ExecutionContexts
-import cats._
-import cats.data._
-import cats.effect._
-import cats.implicits._
 
 import scala.util.Try
 
-case class SingleMonthStatistics(
-  userId: String,
-  month: LocalDate,
-  numberOfTasks: Int,
-  numberOfTasksWithVolume: Int,
-  averageDuration: Int,
-  averageVolume: Option[Float],
-  averageDurationPerVolume: Option[Float]
-)
+trait StatisticsRepository[F[_]] {
+  def addTask(task: Task): F[Unit]
+  def removeTask(task: Task): F[Unit]
+  def getStatistics(users: NonEmptyList[String], from: LocalDate, to: LocalDate): F[List[Statistics]]
+}
 
-class StatisticsRepository {
+class StatisticsRepositoryImpl extends StatisticsRepository[ConnectionIO] {
   def addTask(task: Task): ConnectionIO[Unit] =
     for {
       singleMonthStatistics <- selectSingleMonthStatisticsForTask(task)
@@ -54,9 +37,9 @@ class StatisticsRepository {
                 fr"""
                   |number_of_tasks_with_volume = ${value.numberOfTasksWithVolume + 1},
                   |average_volume = ${(value.averageVolume
-                      .getOrElse(0f) * value.numberOfTasksWithVolume + volume) / (value.numberOfTasksWithVolume + 1)},
+                      .getOrElse(0f) * value.numberOfTasksWithVolume + volume.value) / (value.numberOfTasksWithVolume + 1)},
                   |average_duration_per_volume = ${(value.averageDurationPerVolume
-                      .getOrElse(0f) * value.numberOfTasksWithVolume + duration / volume) / (value.numberOfTasksWithVolume + 1)},
+                      .getOrElse(0f) * value.numberOfTasksWithVolume + duration / volume.value) / (value.numberOfTasksWithVolume + 1)},
                   |""".stripMargin
             )
             .getOrElse(Fragment.empty) ++
@@ -71,7 +54,7 @@ class StatisticsRepository {
              |  ${task.volume.fold(0)(_ => 1)},
              |   ${Duration.between(task.startTime, task.endTime).getSeconds},
              |    ${task.volume},
-             |     ${task.volume.map(Duration.between(task.startTime, task.endTime).getSeconds / _)}
+             |     ${task.volume.map(Duration.between(task.startTime, task.endTime).getSeconds / _.value)}
              |     )
              |""".stripMargin.update.run
       }
@@ -99,11 +82,11 @@ class StatisticsRepository {
                       |number_of_tasks_with_volume = ${value.numberOfTasksWithVolume - 1},
                       |average_volume = ${Try(
                          (value.averageVolume
-                           .getOrElse(0f) * value.numberOfTasksWithVolume - volume) / (value.numberOfTasksWithVolume - 1)
+                           .getOrElse(0f) * value.numberOfTasksWithVolume - volume.value) / (value.numberOfTasksWithVolume - 1)
                        ).toOption},
                       |average_duration_per_volume = ${Try(
                          (value.averageDurationPerVolume
-                           .getOrElse(0f) * value.numberOfTasksWithVolume - duration / volume) / (value.numberOfTasksWithVolume - 1)
+                           .getOrElse(0f) * value.numberOfTasksWithVolume - duration / volume.value) / (value.numberOfTasksWithVolume - 1)
                        ).toOption},
                       |""".stripMargin
                )
@@ -116,8 +99,8 @@ class StatisticsRepository {
     } yield ()
 
 
-  def getStatistics(users: List[String], from: LocalDate, to: LocalDate): ConnectionIO[List[Statistics]] =
-    sql"""
+  def getStatistics(users: NonEmptyList[String], from: LocalDate, to: LocalDate): ConnectionIO[List[Statistics]] =
+    (sql"""
          |SELECT
          | user_id,
          | SUM(number_of_tasks),
@@ -126,9 +109,9 @@ class StatisticsRepository {
          | SUM(number_of_tasks_with_volume * average_volume) / SUM(number_of_tasks_with_volume),
          | SUM(number_of_tasks_with_volume * average_duration_per_volume) / SUM(number_of_tasks_with_volume)
          |FROM statistics
-         |WHERE month >= $from AND month <= $to
+         |WHERE month >= $from AND month <= $to""".stripMargin ++ Fragments.in(fr"user_id", users) ++ sql"""
          |GROUP BY user_id
-         |""".stripMargin.query[Statistics].to[List]
+         |""".stripMargin).query[Statistics].to[List]
 
 
   private def selectSingleMonthStatisticsForTask(task: Task): ConnectionIO[Option[SingleMonthStatistics]] =
@@ -142,4 +125,14 @@ class StatisticsRepository {
        | extract(month from month) = ${task.startTime.getMonthValue} AND
        | extract(year from month) = ${task.startTime.getYear}
        |""".stripMargin
+
+  case class SingleMonthStatistics(
+                                    userId: String,
+                                    month: LocalDate,
+                                    numberOfTasks: Int,
+                                    numberOfTasksWithVolume: Int,
+                                    averageDuration: Int,
+                                    averageVolume: Option[Float],
+                                    averageDurationPerVolume: Option[Float]
+                                  )
 }

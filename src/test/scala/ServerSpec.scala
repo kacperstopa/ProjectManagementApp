@@ -2,7 +2,8 @@ import java.time.LocalDateTime
 
 import cats.effect.IO
 import com.kstopa.projectmanagement.config.Config
-import com.kstopa.projectmanagement.http.dto.{CreateProjectDTO, CreateTaskDTO, ProjectDTO, TaskDTO}
+import com.kstopa.projectmanagement.core.task.UpdateTaskEntity
+import com.kstopa.projectmanagement.http.dto.{CreateProjectDTO, CreateTaskDTO, ProjectDTO, ProjectWithTasksDTO, TaskDTO, UpdateTaskDTO}
 import org.http4s.client.blaze.BlazeClientBuilder
 import org.http4s._
 import org.scalatest.funsuite.AnyFunSuite
@@ -102,6 +103,46 @@ class ServerSpec extends AnyFunSuite with Matchers {
       .unsafeRunSync()
 
     assert(getStatus == Status.NotFound)
+  }
+
+  test("Server should update task") {
+    val projectDTO = createProject("test5")
+    val taskDTO = createTask(
+      projectDTO.id,
+      LocalDateTime.now().minusDays(2),
+      LocalDateTime.now().minusDays(2).plusHours(1),
+      Option.empty,
+      Option(5),
+    )
+
+    val updatedTask = client
+      .use { client =>
+        val request = requestWithAuthorization
+          .withMethod(Method.PUT)
+          .withEntity(
+            UpdateTaskDTO(
+              LocalDateTime.now().minusDays(2).plusMinutes(10),
+              LocalDateTime.now().minusDays(2).plusMinutes(40),
+              Option("qwe"),
+              Option.empty
+            )
+          )
+          .withUri(Uri.unsafeFromString(s"$rootUrl/tasks/${taskDTO.id}"))
+        client.expect[TaskDTO](request)
+      }
+      .unsafeRunSync()
+
+    val projectWithTasks = client
+      .use { client =>
+        val request = requestWithAuthorization
+          .withMethod(Method.GET)
+          .withUri(Uri.unsafeFromString(s"$rootUrl/projects/${projectDTO.id}"))
+        client.expect[ProjectWithTasksDTO](request)
+      }
+      .unsafeRunSync()
+
+    assert(projectWithTasks.tasks.find(_.id == taskDTO.id).exists(_.deletedOn.isDefined))
+    assert(projectWithTasks.tasks.find(_.id == updatedTask.id).exists(_.deletedOn.isEmpty))
   }
 
   private def createProject(name: String): ProjectDTO =

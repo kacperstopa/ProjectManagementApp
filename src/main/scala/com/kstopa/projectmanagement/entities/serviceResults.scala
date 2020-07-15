@@ -1,4 +1,7 @@
-package com.kstopa.projectmanagement.model
+package com.kstopa.projectmanagement.entities
+
+import com.kstopa.projectmanagement.core.project.Project
+import com.kstopa.projectmanagement.core.task.Task
 
 sealed trait ProjectDeletionResult
 object ProjectDeletionResult {

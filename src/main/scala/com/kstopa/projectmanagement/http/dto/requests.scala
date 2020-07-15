@@ -4,7 +4,7 @@ import java.time.LocalDateTime
 
 import cats.data.NonEmptyList
 import cats.effect.Sync
-import com.kstopa.projectmanagement.model.{Order, ProjectId, SortBy, YearWithMonth}
+import com.kstopa.projectmanagement.entities.{Order, SortBy, YearWithMonth}
 import io.circe.Decoder
 import io.circe.generic.auto._
 import org.http4s.{EntityDecoder, EntityEncoder}
@@ -42,6 +42,7 @@ case class UpdateTaskDTO(
 )
 object UpdateTaskDTO {
   implicit def updateTaskDTODecoder[F[_]: Sync]: EntityDecoder[F, UpdateTaskDTO] = jsonOf
+  implicit def updateTaskDTOEntityEncoder[F[_]: Sync]: EntityEncoder[F, UpdateTaskDTO] = jsonEncoderOf
 }
 
 case class ProjectQueryDTO(
@@ -58,7 +59,6 @@ object ProjectQueryDTO {
   implicit def projectQueryDTODecoder[F[_]: Sync]: EntityDecoder[F, ProjectQueryDTO] = jsonOf
 }
 
-
 sealed trait SortByDTO {
   def toService: SortBy
 }
@@ -66,7 +66,7 @@ object SortByDTO {
   case object CreationTimeDTO extends SortByDTO {
     override def toService: SortBy = SortBy.CreationTime
   }
-  case object UpdateTimeDTO   extends SortByDTO {
+  case object UpdateTimeDTO extends SortByDTO {
     override def toService: SortBy = SortBy.UpdateTime
   }
 
@@ -84,7 +84,7 @@ object OrderDTO {
   case object DescDTO extends OrderDTO {
     override def toService: Order = Order.Desc
   }
-  case object AscDTO  extends OrderDTO {
+  case object AscDTO extends OrderDTO {
     override def toService: Order = Order.Asc
   }
 

@@ -2,15 +2,15 @@ package com.kstopa.projectmanagement.http.routes
 
 import cats.effect.Sync
 import cats.syntax.all._
+import com.kstopa.projectmanagement.core.project.{ProjectId, ProjectServiceImpl}
 import com.kstopa.projectmanagement.http.dto._
-import com.kstopa.projectmanagement.model._
-import com.kstopa.projectmanagement.service.ProjectService
+import com.kstopa.projectmanagement.entities._
 import org.http4s.AuthedRoutes
 import org.http4s.dsl.Http4sDsl
 
 object ProjectRoutes {
   def create[F[_]: Sync](
-    projectService: ProjectService[F],
+    projectService: ProjectServiceImpl[F],
   ): AuthedRoutes[AuthUser, F] = {
     val dsl = new Http4sDsl[F] {}
     import dsl._
