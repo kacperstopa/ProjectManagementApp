@@ -1,23 +1,42 @@
-package com.kstopa.projectmanagement.service
+package com.kstopa.projectmanagement.core.project
 
 import java.time.{Duration, LocalDateTime}
 
 import cats.data.{NonEmptyList, OptionT}
 import cats.effect.Bracket
-import com.kstopa.projectmanagement.model.ProjectDeletionResult.{ProjectDeleted, ProjectNotDeleted}
-import com.kstopa.projectmanagement.model._
-import com.kstopa.projectmanagement.repository.{ProjectRepository, StatisticsRepository, TaskRepository}
+import cats.implicits._
+import com.kstopa.projectmanagement.core.statistics.StatisticsRepository
+import com.kstopa.projectmanagement.core.task.{MaybeDeletedTask, TaskRepository}
+import com.kstopa.projectmanagement.entities.ProjectDeletionResult.{ProjectDeleted, ProjectNotDeleted}
+import com.kstopa.projectmanagement.entities._
+import doobie.free.connection.ConnectionIO
 import doobie.hikari.HikariTransactor
 import doobie.implicits._
-import doobie.implicits._
-import cats.implicits._
+import cats.data.Nested
+import cats.data._
+import cats.{Order => _, _}
 
-class ProjectService[F[_]](
-  projectRepository: ProjectRepository,
-  taskRepository: TaskRepository,
-  statisticsRepository: StatisticsRepository,
+trait ProjectService[F[_]] {
+  def insert(authUser: AuthUser)(name: String): F[ProjectInsertionResult]
+  def delete(authUser: AuthUser)(id: ProjectId): F[ProjectDeletionResult]
+  def rename(authUser: AuthUser)(projectId: ProjectId, newName: String): F[ProjectRenameResult]
+  def getProjectWithTasks(projectId: ProjectId): F[Option[ProjectWithTasks]]
+  def query(
+    ids: Option[NonEmptyList[ProjectId]],
+    from: Option[LocalDateTime],
+    to: Option[LocalDateTime],
+    deleted: Option[Boolean],
+    sortBy: Option[SortBy],
+    order: Option[Order],
+  )(page: Int, size: Int): F[List[MaybeDeletedProjectWithTasks]]
+}
+
+class ProjectServiceImpl[F[_]](
+  projectRepository: ProjectRepository[ConnectionIO],
+  taskRepository: TaskRepository[ConnectionIO],
+  statisticsRepository: StatisticsRepository[ConnectionIO],
   transactor: HikariTransactor[F]
-)(implicit bracket: Bracket[F, Throwable]) {
+)(implicit bracket: Bracket[F, Throwable]) extends ProjectService[F] {
 
   def insert(authUser: AuthUser)(name: String): F[ProjectInsertionResult] =
     projectRepository.insert(authUser)(name).transact(transactor)
@@ -55,9 +74,6 @@ class ProjectService[F[_]](
       tasks     <- fs2.Stream.eval(taskRepository.getTasksForProject(project.id))
       totalTime <- fs2.Stream.eval(AsyncConnectionIO.pure(tasksToDuration(tasks)))
     } yield MaybeDeletedProjectWithTasks(project, tasks, totalTime)).compile.toList.transact(transactor)
-
-  def getSumOftime(projectId: ProjectId): F[Long] =
-    taskRepository.getSumOfTimeForProject(projectId).transact(transactor)
 
   private def tasksToDuration(tasks: List[MaybeDeletedTask]): Duration =
     Duration.ofNanos(tasks.map(task => Duration.between(task.startTime, task.endTime).toNanos).sum)

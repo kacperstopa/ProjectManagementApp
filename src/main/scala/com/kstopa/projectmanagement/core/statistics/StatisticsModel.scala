@@ -1,4 +1,4 @@
-package com.kstopa.projectmanagement.model
+package com.kstopa.projectmanagement.core.statistics
 
 case class StatisticsList(statistics: List[Statistics])
 

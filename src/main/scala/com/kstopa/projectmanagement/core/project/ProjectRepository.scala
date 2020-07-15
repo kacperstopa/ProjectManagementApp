@@ -1,33 +1,40 @@
-package com.kstopa.projectmanagement.repository
+package com.kstopa.projectmanagement.core.project
 
 import java.time.LocalDateTime
 
-import cats.data.{NonEmptyList, OptionT}
-import cats.effect._
+import cats.data.NonEmptyList
 import cats.free.Free
-import cats.free.Free.Pure
-import com.kstopa.projectmanagement.model.{AuthUser, MaybeDeletedProject, Order, Project, ProjectId, ProjectInsertionResult, ProjectRenameResult, SortBy}
+import com.kstopa.projectmanagement.entities.ProjectInsertionResult.ProjectInserted
+import com.kstopa.projectmanagement.entities.ProjectRenameResult.ProjectRenamed
+import com.kstopa.projectmanagement.entities._
+import doobie._
 import doobie.free.connection.ConnectionIO
-import doobie.hikari.HikariTransactor
 import doobie.implicits._
 import doobie.postgres._
 import doobie.implicits.javatime._
 import cats.implicits._
-import com.kstopa.projectmanagement.model.ProjectInsertionResult.ProjectInserted
-import com.kstopa.projectmanagement.model.ProjectRenameResult.ProjectRenamed
 import doobie.util.fragment.Fragment
 import doobie._
 import doobie.implicits._
-import doobie.util.ExecutionContexts
-import cats.data._
-import cats.effect._
-import cats.implicits._
 
-trait ProjectRepositoryException          extends Throwable
-case object ProjectAlreadyExistsException extends ProjectRepositoryException
+trait ProjectRepository[F[_]] {
+  def insert(authUser: AuthUser)(name: String): F[ProjectInsertionResult]
+  def rename(authUser: AuthUser)(projectId: ProjectId, newName: String): F[ProjectRenameResult]
+  def softDelete(authUser: AuthUser)(id: ProjectId): F[Option[Project]]
+  def getAll: F[List[Project]]
+  def getForIdAndAuthor(id: ProjectId, author: String): F[Option[Project]]
+  def get(id: ProjectId): F[Option[Project]]
+  def query(
+    ids: Option[NonEmptyList[ProjectId]],
+    from: Option[LocalDateTime],
+    to: Option[LocalDateTime],
+    deleted: Option[Boolean],
+    sortBy: Option[SortBy],
+    order: Option[Order],
+  )(page: Int, size: Int): fs2.Stream[F, MaybeDeletedProject]
+}
 
-class ProjectRepository() {
-
+class ProjectRepositoryImpl() extends ProjectRepository[ConnectionIO] {
   def insert(authUser: AuthUser)(name: String): ConnectionIO[ProjectInsertionResult] =
     sql"INSERT INTO projects(name, author, created_on) VALUES ($name, ${authUser.userId}, now())".update
       .withUniqueGeneratedKeys[Project]("id", "name", "author", "created_on")
@@ -78,6 +85,8 @@ class ProjectRepository() {
       .query[Project]
       .option
 
+  private def lool = sql"INSERT INTO tasks(project_id, start_time, end_time, author, volume, comment) VA".update
+
   def query(
     ids: Option[NonEmptyList[ProjectId]],
     from: Option[LocalDateTime],
@@ -102,15 +111,17 @@ class ProjectRepository() {
       to.toList.flatMap(f => List(fr"created_on < $f", fr" AND "))).init.fold(Fragment.empty)(_ ++ _)
 
     val orderBy =
-      if(sortBy.isEmpty) {
+      if (sortBy.isEmpty) {
         Fragment.empty
       } else if (sortBy.contains(SortBy.CreationTime)) {
         fr"ORDER BY created_on " ++ order.fold(Fragment.empty)(order => if (order == Order.Asc) fr"ASC" else fr"DESC")
       } else {
-        fr"ORDER BY coalesce(max, created_on) " ++ order.fold(Fragment.empty)(order => if (order == Order.Asc) fr"ASC" else fr"DESC")
+        fr"ORDER BY coalesce(max, created_on) " ++ order.fold(Fragment.empty)(
+          order => if (order == Order.Asc) fr"ASC" else fr"DESC"
+        )
       }
 
-    val finalSelect = if(sortBy.contains(SortBy.UpdateTime)) {
+    val finalSelect = if (sortBy.contains(SortBy.UpdateTime)) {
       fr"""SELECT id, name, author, created_on, deleted_on
            FROM (
              SELECT max(start_time), project_id FROM tasks GROUP BY project_id
@@ -119,7 +130,7 @@ class ProjectRepository() {
     } else select
 
     val paging =
-      fr"offset ${page*size} rows fetch next $size rows only"
+      fr"offset ${page * size} rows fetch next $size rows only"
     (finalSelect ++ conditions ++ orderBy ++ paging).query[MaybeDeletedProject].stream
   }
 }

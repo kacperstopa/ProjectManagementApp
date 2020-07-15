@@ -1,4 +1,4 @@
-package com.kstopa.projectmanagement.model
+package com.kstopa.projectmanagement.entities
 
 import java.time.LocalDate
 

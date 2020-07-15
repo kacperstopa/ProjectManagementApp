@@ -1,4 +1,4 @@
-package com.kstopa.projectmanagement.model
+package com.kstopa.projectmanagement.entities
 
 import io.circe.Decoder
 import io.circe.generic.semiauto.deriveDecoder

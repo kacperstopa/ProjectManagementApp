@@ -3,8 +3,7 @@ package com.kstopa.projectmanagement.http.authentication
 import java.util.UUID
 
 import cats.effect.IO
-import cats.implicits._
-import com.kstopa.projectmanagement.model.AuthUser
+import com.kstopa.projectmanagement.entities.AuthUser
 import dev.profunktor.auth._
 import dev.profunktor.auth.jwt.{JwtToken, _}
 import io.circe.parser.decode
